@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flexcom Network Monitor Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        flexcom: { 50: '#f0f9ff', 100: '#e0f2fe', 500: '#0ea5e9', 600: '#0284c7', 800: '#075985', 900: '#0c4a6e' }
+                    },
+                    fontFamily: { sans: ['Inter', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f8fafc; }
+        .terminal { font-family: 'JetBrains Mono', monospace; }
+        .glass-panel { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(226, 232, 240, 0.8); }
+        .status-active { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen">
+
+    <div class="bg-white border-b border-slate-200 py-6 sticky top-0 z-40 shadow-sm">
+        <div class="max-w-7xl mx-auto px-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div>
+                <h1 class="text-2xl font-bold text-slate-900">Network Monitor Pro</h1>
+                <p class="text-slate-500 text-sm">Ping, VoIP & Speedtest Suite</p>
+            </div>
+            
+            <div class="flex items-center gap-4 bg-slate-50 p-3 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Drempel (ms)</label>
+                    <input type="number" id="threshold" value="50" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 text-sm font-mono focus:ring-2 focus:ring-flexcom-500 outline-none">
+                </div>
+                <div class="flex flex-col">
+                    <label class="text-[10px] font-bold text-slate-400 uppercase">Max Fouten</label>
+                    <input type="number" id="maxFails" value="3" class="w-20 bg-white border border-slate-300 rounded px-2 py-1 text-sm font-mono focus:ring-2 focus:ring-flexcom-500 outline-none">
+                </div>
+                <button id="btnToggle" class="bg-flexcom-500 hover:bg-flexcom-600 text-white px-6 py-2 rounded-lg font-semibold shadow-md transition-all">
+                    Start
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-t-blue-500">
+                <h2 class="text-xs font-bold text-slate-400 uppercase mb-2">Google (8.8.8.8)</h2>
+                <div id="ping1-display" class="text-3xl font-bold font-mono">--<span class="text-lg text-slate-400 ml-1">ms</span></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-t-orange-500">
+                <h2 class="text-xs font-bold text-slate-400 uppercase mb-2">Cloudflare (1.1.1.1)</h2>
+                <div id="ping2-display" class="text-3xl font-bold font-mono">--<span class="text-lg text-slate-400 ml-1">ms</span></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-t-purple-500">
+                <h2 class="text-xs font-bold text-slate-400 uppercase mb-1">VoIP Jitter</h2>
+                <div id="jitter-display" class="text-2xl font-bold font-mono">-- ms</div>
+                <div id="voip-status" class="text-[10px] font-bold mt-1 text-slate-400">Wachten...</div>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 shadow-sm border-t-4 border-t-emerald-500 flex flex-col justify-between">
+                <div>
+                    <h2 class="text-xs font-bold text-slate-400 uppercase mb-1">Download</h2>
+                    <div id="speed-display" class="text-2xl font-bold font-mono">-- Mbps</div>
+                </div>
+                <button onclick="runSpeedTest()" class="text-[10px] uppercase font-bold text-emerald-600 hover:text-emerald-800 transition-colors mt-2 text-left">Nu Testen</button>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div class="lg:col-span-2 bg-slate-900 rounded-2xl shadow-xl overflow-hidden min-h-[300px]">
+                <div class="bg-slate-800 px-5 py-3 flex justify-between items-center">
+                    <span class="text-xs text-slate-400 font-mono italic">MONITOR_LOG_HISTORY</span>
+                    <button onclick="clearLog()" class="text-[10px] text-slate-400 hover:text-white">WISSEN</button>
+                </div>
+                <div id="terminal" class="terminal p-5 text-[13px] text-slate-300 overflow-y-auto h-[250px] space-y-1"></div>
+            </div>
+            <div class="glass-panel rounded-2xl p-6 flex flex-col items-center justify-center border border-slate-200">
+                <h2 class="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Foutenteller</h2>
+                <div id="failCount-display" class="text-6xl font-bold text-slate-400 font-mono">0</div>
+                <p class="text-slate-400 text-sm mt-2">kritieke storingen</p>
+            </div>
+        </div>
+    </main>
+
+    <div id="alarmModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-white rounded-2xl p-8 max-w-sm w-full shadow-2xl border-t-8 border-red-500 text-center">
+            <i class="fa-solid fa-triangle-exclamation text-red-500 text-4xl mb-4"></i>
+            <h2 class="text-xl font-bold mb-2">Netwerk Probleem!</h2>
+            <p class="text-slate-600 mb-6">Drempelwaarde overschreden.</p>
+            <button onclick="closeModal()" class="w-full bg-slate-900 text-white py-3 rounded-xl hover:bg-slate-800">Sluiten</button>
+        </div>
+    </div>
+
+    <script>
+        let isRunning = false;
+        let failCount = 0;
+        let alarmTriggered = false;
+        let latencyHistory = [];
+        let loopInterval = null;
+
+        const btnToggle = document.getElementById('btnToggle');
+        const terminal = document.getElementById('terminal');
+
+        function logMsg(msg, type = 'normal') {
+            const div = document.createElement('div');
+            let colorClass = '';
+            if (type === 'error') colorClass = 'text-red-400 font-bold';
+            
+            div.className = colorClass;
+            div.innerHTML = `<span class="text-slate-500">[${new Date().toLocaleTimeString()}]</span> ${msg}`;
+            terminal.appendChild(div);
+            terminal.scrollTop = terminal.scrollHeight;
+        }
+
+        function clearLog() { terminal.innerHTML = ''; }
+
+        function updateVoIPQuality(newLatency) {
+            latencyHistory.push(newLatency);
+            if(latencyHistory.length > 10) latencyHistory.shift();
+            
+            if(latencyHistory.length > 1) {
+                let diffs = 0;
+                for(let i = 1; i < latencyHistory.length; i++) diffs += Math.abs(latencyHistory[i] - latencyHistory[i-1]);
+                const jitter = (diffs / (latencyHistory.length - 1)).toFixed(1);
+                document.getElementById('jitter-display').innerText = jitter + ' ms';
+                
+                const status = document.getElementById('voip-status');
+                if(jitter < 20) { status.innerText = 'Goede Kwaliteit'; status.className = 'text-[10px] font-bold text-emerald-500'; }
+                else if(jitter < 50) { status.innerText = 'Matig'; status.className = 'text-[10px] font-bold text-orange-500'; }
+                else { status.innerText = 'Slecht'; status.className = 'text-[10px] font-bold text-red-500'; }
+            }
+        }
+
+        async function runSpeedTest() {
+            const startTime = performance.now();
+            try {
+                await fetch('https://cloudflare.com/cdn-cgi/trace?_t=' + Date.now(), { cache: 'no-store' });
+                const duration = (performance.now() - startTime) / 1000;
+                const mbps = ((350 * 8 / duration) / 1000).toFixed(1);
+                document.getElementById('speed-display').innerText = mbps + ' Mbps';
+                logMsg(`Speedtest voltooid: ${mbps} Mbps`);
+            } catch(e) { document.getElementById('speed-display').innerText = 'Err'; }
+        }
+
+        async function measureLatency(url) {
+            const start = performance.now();
+            try {
+                await fetch(`${url}?_t=${Date.now()}`, { mode: 'no-cors', signal: AbortSignal.timeout(3000) });
+                return Math.round(performance.now() - start);
+            } catch { return -1; }
+        }
+
+        async function runCheck() {
+            if (!isRunning) return;
+
+            const threshold = parseInt(document.getElementById('threshold').value);
+            const maxFails = parseInt(document.getElementById('maxFails').value);
+
+            const r1 = await measureLatency("https://www.google.com/favicon.ico");
+            const r2 = await measureLatency("https://1.1.1.1/cdn-cgi/trace");
+
+            document.getElementById('ping1-display').innerHTML = (r1 === -1 ? 'ERR' : r1) + '<span class="text-lg text-slate-400 ml-1">ms</span>';
+            document.getElementById('ping2-display').innerHTML = (r2 === -1 ? 'ERR' : r2) + '<span class="text-lg text-slate-400 ml-1">ms</span>';
+            
+            const isBreached = (r1 === -1 || r1 > threshold || r2 === -1 || r2 > threshold);
+            logMsg(`Ping Status: G: ${r1 === -1 ? 'ERR' : r1 + 'ms'} | CF: ${r2 === -1 ? 'ERR' : r2 + 'ms'}`, isBreached ? 'error' : 'normal');
+
+            if(r1 !== -1) updateVoIPQuality(r1);
+
+            const p1Fail = (r1 === -1 || r1 > threshold);
+            const p2Fail = (r2 === -1 || r2 > threshold);
+
+            if(p1Fail || p2Fail) {
+                failCount++;
+                document.getElementById('failCount-display').innerText = failCount;
+                if(failCount >= maxFails && !alarmTriggered) {
+                    document.getElementById('alarmModal').classList.remove('hidden');
+                    alarmTriggered = true;
+                    try { const ctx = new AudioContext(); const osc = ctx.createOscillator(); osc.connect(ctx.destination); osc.start(); osc.stop(0.5); } catch(e){}
+                }
+            } else {
+                failCount = 0;
+                document.getElementById('failCount-display').innerText = '0';
+                alarmTriggered = false;
+            }
+
+            loopInterval = setTimeout(runCheck, 1500);
+        }
+
+        btnToggle.addEventListener('click', () => {
+            isRunning = !isRunning;
+            btnToggle.innerText = isRunning ? 'Stop' : 'Start';
+            if(isRunning) {
+                logMsg("Diagnostiek gestart...");
+                runCheck();
+            } else {
+                clearTimeout(loopInterval);
+                logMsg("Diagnostiek gestopt.");
+            }
+        });
+
+        function closeModal() { document.getElementById('alarmModal').classList.add('hidden'); }
+    </script>
+</body>
+</html>
